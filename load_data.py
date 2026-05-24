@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 from pathlib import Path
+from analysis import fetch_summary, display_summary
 
 DB_PATH = Path("data.db")
 SCHEMA_PATH = Path("schema.sql")
@@ -16,7 +17,8 @@ def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH):
         ].drop_duplicates(subset=["subject_id"])
     patients_df = df[
         ["subject_id", "condition", "age", "sex", "treatment", "response"]
-        ].drop_duplicates(subset=["subject_id"])
+    ].drop_duplicates(subset=["subject_id"])
+    patients_df["response"] = patients_df["response"].fillna("unknown")
     treatments_df = df[
         [
             "subject_id",
@@ -47,4 +49,5 @@ def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH):
 
 
 if __name__ == "__main__":
-    load()
+    rows = fetch_summary()
+    display_summary(rows)
