@@ -1,5 +1,13 @@
 # Teiko Interview
 
+## Table of Contents
+
+- [Intructions to Run Code & Reproduce Outputs](#intructions-to-run-code--reproduce-outputs)
+- [Link to the Dashboard](#link-to-the-dashboard)
+- [Schema Design](#schema-design)
+- [Brief Overview of Code Structure](#brief-overview-of-code-structure)
+- [Thanks!](#thanks)
+
 ## Intructions to Run Code & Reproduce Outputs
 
 In GitHub Codespaces, run from the project root:
