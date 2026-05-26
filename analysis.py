@@ -7,6 +7,7 @@ import pandas as pd
 
 DB_PATH = Path("data.db")
 BOXPLOT_PATH = Path("relative_frequency.png")
+OUTPUT_DIR = Path("outputs")
 
 # region PART 2
 SUMMARY_SQL = """
@@ -158,6 +159,68 @@ def plot_statistical_analysis(df: pd.DataFrame, output_path: Path = BOXPLOT_PATH
     plt.close()
     return output_path
 
+def summarize_response_comparison(df: pd.DataFrame):
+    """Mean and std dev of relative frequencies between responders and non-responders."""
+    rows = []
+
+    for population in POPULATION_ORDER:
+        responders = df.loc[
+            (df["population"] == population) & (df["response"] == "Responder"),
+            "percentage",
+        ]
+        non_responders = df.loc[
+            (df["population"] == population) & (df["response"] == "Non-responder"),
+            "percentage",
+        ]
+        rows.append(
+            {
+                "population": population,
+                "responder_mean": responders.mean(),
+                "responder_std": responders.std(),
+                "non_responder_mean": non_responders.mean(),
+                "non_responder_std": non_responders.std(),
+                "mean_difference": responders.mean() - non_responders.mean(),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def display_response_comparison(df: pd.DataFrame) -> pd.DataFrame:
+    results = summarize_response_comparison(df)
+    significant_difference = results.loc[results["mean_difference"].abs().idxmax()]
+
+    print(
+        "\n----------------------------------------------------------" +
+        "\nPART 3: Responder vs non-responder comparison (melanoma miraclib PBMC)" +
+        "\n----------------------------------------------------------\n"
+    )
+    print("Relative frequency per sample: mean and standard deviation.\n")
+
+    header = (
+        f"{'population':<15}"
+        f"{'resp mean':<15}{'resp std':<15}"
+        f"{'nonresp mean':<15}{'nonresp std':<15}"
+        f"{'diff':<15}"
+    )
+    print(header)
+    print("-" * len(header))
+    for _, row in results.iterrows():
+        print(
+            f"{row['population']:<15}"
+            f"{row['responder_mean']:<15.2f}{row['responder_std']:<15.2f}"
+            f"{row['non_responder_mean']:<15.2f}{row['non_responder_std']:<15.2f}"
+            f"{row['mean_difference']:<15.2f}"
+        )
+
+    print(
+        f"\nLargest mean gap: {significant_difference['population']} " +
+        f"({significant_difference['mean_difference']:+.2f} difference between means)" +
+        f" with the largest stdev of {significant_difference['responder_std']:.2f}" +
+        " \nalso Bob should direct Yah D'yada to the box plots for more visual analysis."
+    )
+    return results
+
 # endregion
 
 # region PART 4
@@ -256,16 +319,113 @@ def display_data_subset_analysis(db_path: Path = DB_PATH):
 
 # endregion
 
+# region BONUS
+BONUS_AVG_B_CELL_SQL = """
+SELECT
+    ROUND(AVG(t.b_cell), 2) AS avg_b_cell,
+    COUNT(*) AS sample_count
+FROM treatments t
+JOIN patients p ON p.subject_id = t.subject_id
+WHERE p.condition = 'melanoma'
+  AND p.sex = 'M'
+  AND p.response = 'yes'
+  AND t.time_from_treatment_start = 0
+"""
+
+BONUS_COHORT_DIAGNOSTICS_SQL = """
+SELECT
+    COUNT(*) AS samples_in_cohort,
+    SUM(CASE WHEN t.b_cell IS NULL THEN 1 ELSE 0 END) AS null_b_cell,
+    SUM(CASE WHEN p.response = 'unknown' THEN 1 ELSE 0 END) AS unknown_response,
+    SUM(CASE WHEN p.response NOT IN ('yes', 'no', 'unknown') THEN 1 ELSE 0 END) AS other_response
+FROM treatments t
+JOIN patients p ON p.subject_id = t.subject_id
+WHERE p.condition = 'melanoma'
+  AND p.sex = 'M'
+  AND t.time_from_treatment_start = 0
+"""
+
+
+def display_bonus_analysis(db_path: Path = DB_PATH):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        result = conn.execute(BONUS_AVG_B_CELL_SQL).fetchone()
+        diag = conn.execute(BONUS_COHORT_DIAGNOSTICS_SQL).fetchone()
+
+        print(
+            "\n----------------------------------------------------------" +
+            "\nBONUS: Average B cells (for melanoma males for responders at time = 0)" +
+            "\n----------------------------------------------------------\n"
+        )
+        print(f"Average B cells: {result['avg_b_cell']:.2f}")
+        print(f"# of samples: {result['sample_count']}\n")
+
+    finally:
+        conn.close()
+# endregion
+
+
+def write_pipeline_outputs(db_path: Path = DB_PATH) -> list[Path]:
+    """Write required tables and plots for grading (Parts 2–4 + bonus)."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    written: list[Path] = []
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        summary_path = OUTPUT_DIR / "population_summary.csv"
+        pd.read_sql_query(SUMMARY_SQL, conn).to_csv(summary_path, index=False)
+        written.append(summary_path)
+
+        pd.read_sql_query(SUBSET_BY_PROJECT_SQL, conn).to_csv(
+            OUTPUT_DIR / "baseline_by_project.csv", index=False
+        )
+        written.append(OUTPUT_DIR / "baseline_by_project.csv")
+
+        pd.read_sql_query(SUBSET_BY_RESPONSE_SQL, conn).to_csv(
+            OUTPUT_DIR / "baseline_by_response.csv", index=False
+        )
+        written.append(OUTPUT_DIR / "baseline_by_response.csv")
+
+        pd.read_sql_query(SUBSET_BY_SEX_SQL, conn).to_csv(
+            OUTPUT_DIR / "baseline_by_sex.csv", index=False
+        )
+        written.append(OUTPUT_DIR / "baseline_by_sex.csv")
+
+        bonus_row = conn.execute(BONUS_AVG_B_CELL_SQL).fetchone()
+        bonus_path = OUTPUT_DIR / "bonus_avg_b_cell.txt"
+        bonus_path.write_text(
+            f"avg_b_cell={bonus_row['avg_b_cell']}\n"
+            f"sample_count={bonus_row['sample_count']}\n"
+        )
+        written.append(bonus_path)
+    finally:
+        conn.close()
+
+    freq_df = fetch_statistical_analysis(db_path)
+    comparison_path = OUTPUT_DIR / "response_comparison.csv"
+    summarize_response_comparison(freq_df).to_csv(comparison_path, index=False)
+    written.append(comparison_path)
+
+    plot_statistical_analysis(freq_df)
+    written.append(BOXPLOT_PATH)
+
+    return written
+
+
 def main():
     summary_rows = fetch_summary()
-    try:
-        display_summary(summary_rows)
-        display_data_subset_analysis()
-    except BrokenPipeError:
-        sys.exit(0)
-
+    # part 2
+    display_summary(summary_rows)
+    # part 3
     df = fetch_statistical_analysis()
     plot_statistical_analysis(df)
+    display_response_comparison(df)
+    # part 4
+    display_data_subset_analysis()
+    # bonus
+    display_bonus_analysis()
 
 if __name__ == "__main__":
     main()

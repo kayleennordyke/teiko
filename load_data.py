@@ -1,20 +1,18 @@
 import sqlite3
+
 import pandas as pd
 from pathlib import Path
-from analysis import fetch_summary, display_summary
 
 DB_PATH = Path("data.db")
 SCHEMA_PATH = Path("schema.sql")
 CSV_PATH = Path("cell-count.csv")
 
 
-def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH):
+def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH) -> None:
     df = pd.read_csv(csv_path)
     df = df.rename(columns={"subject": "subject_id"})
 
-    projects_df = df[
-        ["subject_id", "project"]
-        ].drop_duplicates(subset=["subject_id"])
+    projects_df = df[["subject_id", "project"]].drop_duplicates(subset=["subject_id"])
     patients_df = df[
         ["subject_id", "condition", "age", "sex", "treatment", "response"]
     ].drop_duplicates(subset=["subject_id"])
@@ -30,7 +28,8 @@ def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH):
             "cd4_t_cell",
             "nk_cell",
             "monocyte",
-        ]]
+        ]
+    ]
 
     if db_path.exists():
         db_path.unlink()
@@ -49,5 +48,4 @@ def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH):
 
 
 if __name__ == "__main__":
-    rows = fetch_summary()
-    display_summary(rows)
+    load()
