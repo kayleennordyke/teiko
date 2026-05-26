@@ -46,6 +46,5 @@ def load(csv_path: Path = CSV_PATH, db_path: Path = DB_PATH) -> None:
     finally:
         conn.close()
 
-
 if __name__ == "__main__":
     load()

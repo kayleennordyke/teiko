@@ -367,7 +367,7 @@ def display_bonus_analysis(db_path: Path = DB_PATH):
 
 
 def write_pipeline_outputs(db_path: Path = DB_PATH) -> list[Path]:
-    """Write required tables and plots for grading (Parts 2–4 + bonus)."""
+    """Write to csv & png"""
     OUTPUT_DIR.mkdir(exist_ok=True)
     written: list[Path] = []
 
