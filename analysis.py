@@ -144,17 +144,28 @@ def fetch_statistical_analysis(db_path: Path = DB_PATH):
     )
     return df
 
-def plot_statistical_analysis(df: pd.DataFrame, output_path: Path = BOXPLOT_PATH):
-    responses = ["Responder", "Non-responder"]
-    data = [
-        df.loc[(df["population"] == p) & (df["response"] == r), "percentage"]
-        for p in POPULATION_ORDER
-        for r in responses
-    ]
-    labels = [f"{p}\n{r}" for p in POPULATION_ORDER for r in responses]
+def plot_statistical_analysis(df: pd.DataFrame, output_path: Path = BOXPLOT_PATH) -> Path:
+    def by_response(response):
+        return [
+            df.loc[(df["population"] == p) & (df["response"] == response), "percentage"]
+            for p in POPULATION_ORDER
+        ]
 
-    plt.boxplot(data, tick_labels=labels)
-    plt.ylabel("percentage")
+    x = list(range(len(POPULATION_ORDER)))
+    plt.figure(figsize=(10, 5))
+    yes = plt.boxplot(by_response("Responder"), positions=x, widths=0.35, patch_artist=True)
+    no = plt.boxplot(
+        by_response("Non-responder"), positions=[i + 0.4 for i in x], widths=0.35, patch_artist=True
+    )
+    for box in yes["boxes"]:
+        box.set_facecolor("green")
+    for box in no["boxes"]:
+        box.set_facecolor("red")
+    plt.title("Relative frequency by population")
+    plt.xticks([i + 0.2 for i in x], POPULATION_ORDER, rotation=45, ha="right")
+    plt.ylabel("Relative frequency (%)")
+    plt.legend([yes["boxes"][0], no["boxes"][0]], ["yes", "no"], loc="upper center", ncol=2)
+    plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
     return output_path
@@ -186,7 +197,8 @@ def summarize_response_comparison(df: pd.DataFrame):
     return pd.DataFrame(rows)
 
 
-def display_response_comparison(df: pd.DataFrame) -> pd.DataFrame:
+def display_response_comparison(df: pd.DataFrame):
+    """Display response comparison to terminal"""
     results = summarize_response_comparison(df)
     significant_difference = results.loc[results["mean_difference"].abs().idxmax()]
 
@@ -278,6 +290,7 @@ SUBSET_TOTAL_SAMPLES_SQL = (
 
 
 def display_data_subset_analysis(db_path: Path = DB_PATH):
+    """Display data subset analysis to terminal"""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -347,6 +360,7 @@ WHERE p.condition = 'melanoma'
 
 
 def display_bonus_analysis(db_path: Path = DB_PATH):
+    """Display bonus analysis to terminal"""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:

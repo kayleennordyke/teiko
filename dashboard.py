@@ -153,8 +153,8 @@ with tab_part4:
     conn.close()
 
 with tab_bonus:
-    st.header("Melanoma males, responders, day 0")
-    st.caption("Average raw B cell count (not relative frequency).")
+    st.header("Average Number of B Cells")
+    st.caption("Average raw B cell count for melanoma males responders at baseline (day 0).")
 
     conn = get_connection(DB_PATH)
     row = conn.execute(BONUS_AVG_B_CELL_SQL).fetchone()
